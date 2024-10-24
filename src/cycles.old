@@ -1,0 +1,73 @@
+#include <Arduino.h>
+#include <elapsedMillis.h>
+
+#define LED1 10
+#define LED2 11
+#define LED3 12
+#define LED4 13
+
+elapsedMillis LED1_blink_timer;
+elapsedMillis LED2_blink_timer;
+
+void timer_init(){
+    noInterrupts(); // disable all interrupts
+    TCCR1A = 0;
+    TCCR1B = 0;
+    TCNT1 = 0;
+
+    OCR1A = 31250; // compare match register 16MHz/256 = 62500 <- value for 1Hz blink
+                   // since we use 31250 then its 2Hz blink
+                   // OCR1A = 31;    // compare match register 16MHz/256/2kHz
+    TCCR1B |= (1 << WGM12); // CTC mode -> clear timer on compare match
+    TCCR1B |= (1 << CS12); // 256 prescaler -> set prescaler as 256
+    TIMSK1 |= (1 << OCIE1A); // enable timer compare interrupt
+    interrupts(); // enable all interrupts
+}
+
+void setup(){
+    pinMode(LED1, OUTPUT);
+    pinMode(LED2, OUTPUT);
+    pinMode(LED3, OUTPUT);
+    pinMode(LED4, OUTPUT);
+
+    digitalWrite(LED1, HIGH);
+    digitalWrite(LED2, HIGH);
+    digitalWrite(LED3, HIGH);
+    digitalWrite(LED4, HIGH);
+
+    timer_init();
+}
+
+volatile int go = 0;
+
+ISR(TIMER1_COMPA_vect){
+    go = 1;
+}
+
+void sync(){
+    while (!go){}
+    go = 0;
+}
+
+void blink_led(int led) {digitalWrite(led, !digitalRead(led));}
+
+void micro1(){
+    blink_led(LED1);
+    blink_led(LED4);
+}
+
+void micro2(){
+    blink_led(LED2);
+    blink_led(LED4);
+}
+
+void micro3(){
+    blink_led(LED3);
+    blink_led(LED2);
+}
+
+void loop(){
+    micro1(); sync();
+    micro2(); sync();
+    micro3(); sync();
+}
